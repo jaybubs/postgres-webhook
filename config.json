@@ -1,0 +1,6 @@
+{
+  "webhook_url" : "http://localhost:55555/kokot",
+  "pguser" : "postgres",
+  "pgpass" : "postgres",
+  "pgdb" : "postgres"
+}
