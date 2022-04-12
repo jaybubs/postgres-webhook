@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 	"net/http"
+	"crypto/tls"
 	"strings"
 
 	"pgwebhook/config"
@@ -41,7 +42,15 @@ func listen(l *pq.Listener) (load string) {
 // in our case a webhook is nothing but a simple post with json
 func webhook(load string, webhook_url string) {
 	payload := strings.NewReader(load)
-	http.Post(webhook_url, "application/json", payload)
+	fmt.Println(payload)
+	
+	// guess what, self signed and corporation certs are a pita, so we skip the check, _be careful you trust the dest_ (in our case it's all in local cluster, we good)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	client.Post(webhook_url, "application/json", payload)
+	
 }
 
 func main() {
@@ -153,8 +162,7 @@ BEGIN
 	  'operation',LOWER(TG_OP),
 	  'schema',TG_TABLE_SCHEMA,
 	  'table',TG_TABLE_NAME,
-	  'record',to_jsonb(rec) || jsonb_build_object('details_json', rec.details_json::jsonb),
-	  'old',to_jsonb(dat)
+	  'record',to_jsonb(rec) || jsonb_build_object('details_json', rec.details_json::jsonb)
   );
   WHEN 'DELETE' THEN
      rec := OLD;
@@ -164,8 +172,7 @@ BEGIN
 	  'operation',LOWER(TG_OP),
 	  'schema',TG_TABLE_SCHEMA,
 	  'table',TG_TABLE_NAME,
-	  'record',to_jsonb(rec) || jsonb_build_object('details_json', rec.details_json::jsonb),
-	  'old',to_jsonb(dat)
+	  'record',to_jsonb(rec) || jsonb_build_object('details_json', rec.details_json::jsonb)
   );
   ELSE
      RAISE EXCEPTION 'Unknown TG_OP: "%". Should not occur!', TG_OP;
