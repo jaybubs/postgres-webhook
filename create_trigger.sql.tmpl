@@ -1,0 +1,18 @@
+/*
+	We'll create the two sql scripts in here for now and inject them directly.
+	In the future this will be generalised so it's more scalable.
+	We need a function that will send a json payload to a channel via a notifier,
+	and a trigger that gets triggered upon insertion/update/deletion of a specific table -
+	in our case, keycloak's event_entity
+*/
+
+-- clean previous triggers
+DROP TRIGGER IF EXISTS send_notif_{{ .Table_name }} ON public.{{ .Table_name }};
+CREATE TRIGGER send_notif_{{ .Table_name }} AFTER
+INSERT
+OR
+DELETE
+OR
+UPDATE
+ON
+public.{{ .Table_name }} FOR EACH ROW EXECUTE FUNCTION notify_{{ .Table_name }}();

@@ -1,0 +1,66 @@
+/* 
+	attention must be paid to the types of the table, we are sending the row as json, _but_ if one of the columns contains json whilst not being a json type, it must be converted:
+	this script is aimed at keycloak, and keycloak loves storing json as varchar 2550
+	thus before sending the payload, the contents must be cast as jsonb, otherwise quotes will appear escaped
+	optionally the payload can be retrieved in go and converted there, in this case we went with the former option
+
+	also sql is just goddamn weird, note that we're creating the payload _every time_ in the cases because this is the only way to prevent sql from going tits up, *i don't know why*
+*/
+
+-- clean previous functions
+CREATE OR REPLACE FUNCTION public.notify_{{ .Table_name }}()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  rec RECORD;
+  dat RECORD;
+  payload TEXT;
+BEGIN
+
+  -- Set record row depending on operation
+  CASE TG_OP
+  WHEN 'UPDATE' THEN
+     rec := NEW;
+     dat := OLD;
+  -- Build the payload
+  payload := json_build_object(
+	  'timestamp',CURRENT_TIMESTAMP,
+	  'operation',LOWER(TG_OP),
+	  'schema',TG_TABLE_SCHEMA,
+	  'table',TG_TABLE_NAME,
+	  'record',to_jsonb(rec) || jsonb_build_object('{{ .Json_column }}', rec.{{ .Json_column }}::jsonb),
+	  'old',to_jsonb(dat)
+  );
+  WHEN 'INSERT' THEN
+     rec := NEW;
+  -- Build the payload
+  payload := json_build_object(
+	  'timestamp',CURRENT_TIMESTAMP,
+	  'operation',LOWER(TG_OP),
+	  'schema',TG_TABLE_SCHEMA,
+	  'table',TG_TABLE_NAME,
+	  'record',to_jsonb(rec) || jsonb_build_object('{{ .Json_column }}', rec.{{ .Json_column }}::jsonb)
+  );
+  WHEN 'DELETE' THEN
+     rec := OLD;
+  -- Build the payload
+  payload := json_build_object(
+	  'timestamp',CURRENT_TIMESTAMP,
+	  'operation',LOWER(TG_OP),
+	  'schema',TG_TABLE_SCHEMA,
+	  'table',TG_TABLE_NAME,
+	  'record',to_jsonb(rec) || jsonb_build_object('{{ .Json_column }}', rec.{{ .Json_column }}::jsonb)
+  );
+  ELSE
+     RAISE EXCEPTION 'Unknown TG_OP: "%". Should not occur!', TG_OP;
+  END CASE;
+
+
+  -- Notify the channel
+  PERFORM pg_notify('{{ .Pgchannel }}',payload);
+
+  RETURN rec;
+END;
+$function$
+;
