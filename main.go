@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 	"net/http"
 	"crypto/tls"
@@ -12,43 +11,11 @@ import (
 	"bytes"
 
 	"pgwebhook/config"
-
-	"github.com/lib/pq"
+	"pgwebhook/dbfx"
+	. "pgwebhook/utilities"
 )
 
-func Create_Listener(connection string, tvars *Template_vars) (*pq.Listener, error) {
-	prob := func(ev pq.ListenerEventType, err error) {
-		CE(err)
-	}
-	listener := pq.NewListener(connection, 1*time.Second, 60*time.Second, prob)
-	err := listener.Listen(tvars.Pgchannel)
-	CE(err)
-	fmt.Println("listener created")
-	return listener, nil
-}
 
-/*
-	The listener consists of two cases: a notification is sent, or time has elapsed
-	this will ensure that the connection is being kept alive. If desired "Pl(pinging)" and "load" can be uncommented and returned in the second case for debugging purposes
-*/
-func Listen(l *pq.Listener,ch chan<- string) {
-	for {
-		select {
-		// listener comes with a channel
-		case n := <-l.Notify:
-			fmt.Println("Received data from channel [", n.Channel, "] :")
-			load := n.Extra
-			ch <-load
-
-		case <-time.After(90*time.Second):
-			// run concurrently
-			go func() {
-				l.Ping()
-			}()
-			ch <-""
-		}
-	}
-}
 
 /*
 	Here we push the channel contents to the webhook everytime new content is received, set up as to run forever in a similar manner to the listener, but independent of it (rather than embedding the webhook directly inside the listener)
@@ -79,11 +46,6 @@ func webhook(load string, webhook_url string) {
 	
 }
 
-type Template_vars struct {
-	Pgchannel string
-	Table_name string
-	Json_column string
-}
 
 func Parse_and_exec(filename string, tvars *Template_vars, db *sql.DB) error {
 
@@ -134,19 +96,19 @@ func main() {
 	err = Parse_and_exec("./create_trigger.sql.tmpl", &admin_event, db)
 	CE(err)
 
-	event_listener, err := Create_Listener(connection, &login_event)
+	event_listener, err := dbfx.Create_Listener(connection, &login_event)
 	CE(err)
-	admin_event_listener, err := Create_Listener(connection, &admin_event)
+	admin_event_listener, err := dbfx.Create_Listener(connection, &admin_event)
 	CE(err)
 
 	event_channel := make(chan string)
 	admin_channel := make(chan string)
 
 	//create event and admin event listeners asynchronously
-	go Listen(event_listener, event_channel)
+	go dbfx.Listen(event_listener, event_channel)
 	go Push(event_channel)
 
-	go Listen(admin_event_listener, admin_channel)
+	go dbfx.Listen(admin_event_listener, admin_channel)
 	go Push(admin_channel)
 
 	// for loop to keep the program running
@@ -155,12 +117,5 @@ func main() {
 	}
 
 
-}
-
-// error wrapper function
-func CE(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 

@@ -30,7 +30,6 @@ func Read_config() error {
 	err = json.Unmarshal(file, &config)
 	ce(err)
 
-	// public variables passed on
 	Webhook_url = config.Webhook_url
 	Pguser = config.Pguser
 	Pgpass = config.Pgpass
