@@ -20,14 +20,14 @@ import (
 	The listener consists of two cases: a notification is sent, or time has elapsed
 	this will ensure that the connection is being kept alive. If desired "Pl(pinging)" and "load" can be uncommented and returned in the second case for debugging purposes
 */
-func listen(l *pq.Listener) (load string) {
+func listen(l *pq.Listener,ch chan<- string) {
 	for {
 		select {
 		// listener comes with a channel
 		case n := <-l.Notify:
 			fmt.Println("Received data from channel [", n.Channel, "] :")
 			load := n.Extra
-			return load
+			ch <-load
 
 		case <-time.After(90*time.Second):
 			// fmt.Println("Got no notifications, pinging!")
@@ -36,7 +36,22 @@ func listen(l *pq.Listener) (load string) {
 				l.Ping()
 			}()
 			// load := "pong!"
-			return ""
+			ch <-""
+		}
+	}
+}
+
+/*
+	Here we push the channel contents to the webhook everytime new content is received, set up as to run forever in a similar manner to the listener, but independent of it (rather than embedding the webhook directly inside the listener)
+*/
+func push(ch <-chan string) {
+	for {
+		// let's not spam the webhook endpoint and only post when there's actual content
+		select {
+		case payload := <-ch:
+			if len(payload) > 0 {
+				webhook(payload, config.Webhook_url)
+			}
 		}
 	}
 }
@@ -130,18 +145,21 @@ func main() {
 	ce(err)
 	fmt.Sprintf("Listening on: %s",config.Webhook_url)
 	
+	event_channel := make(chan string)
+	admin_channel := make(chan string)
+
+	//create event and admin event listeners asynchronously
+	go listen(event_listener, event_channel)
+	go push(event_channel)
+
+	go listen(admin_event_listener, admin_channel)
+	go push(admin_channel)
+
+	// for loop to keep the program running
 	for {
-		login_content := listen(event_listener)
-		// let's not spam the webhook endpoint and only post when there's actual content
-		if len(login_content) > 0 {
-			webhook(login_content, config.Webhook_url)
-		}
-		admin_content := listen(admin_event_listener)
-		if len(admin_content) > 0 {
-			webhook(admin_content, config.Webhook_url)
-		}
-		
+		time.Sleep(time.Second * 10)
 	}
+
 
 }
 
