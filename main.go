@@ -30,12 +30,10 @@ func listen(l *pq.Listener,ch chan<- string) {
 			ch <-load
 
 		case <-time.After(90*time.Second):
-			// fmt.Println("Got no notifications, pinging!")
 			// run concurrently
 			go func() {
 				l.Ping()
 			}()
-			// load := "pong!"
 			ch <-""
 		}
 	}
@@ -56,7 +54,7 @@ func push(ch <-chan string) {
 	}
 }
 
-// in our case a webhook is nothing but a simple post with json
+// in our case a webhook is nothing but a simple post request with json
 func webhook(load string, webhook_url string) {
 	payload := strings.NewReader(load)
 	fmt.Println(payload)
@@ -100,24 +98,31 @@ func main() {
 		Json_column: "representation",
 	}
 
-	// set up function
-	tmpl, err := template.ParseFiles("./create_function.sql.tmpl")
-	// have to send string to bytes buffer because of io.reader method, only need to declare once
+	// string load is cast to bytes buffer because of io.reader method, only need to declare once and overwrite
 	var buf bytes.Buffer
+	var create_function string
+	var create_trigger string
+	var tmpl *template.Template
+
+	// set up function for login events
+
+	tmpl, err = template.ParseFiles("./create_function.sql.tmpl")
 	tmpl.Execute(&buf, login_event)
 	// and back to string for db.exec purpose
-	create_function := buf.String()
+	create_function = buf.String()
 	_, err = db.Exec(create_function)
 	ce(err)
 
-	// set up trigger
+	// set up trigger for login events
+
 	tmpl, err = template.ParseFiles("./create_trigger.sql.tmpl")
 	tmpl.Execute(&buf, login_event)
-	create_trigger := buf.String()
+	create_trigger = buf.String()
 	_, err = db.Exec(create_trigger)
 	ce(err)
 
-	// set up function
+	// set up function for admin events
+
 	tmpl, err = template.ParseFiles("./create_function.sql.tmpl")
 	// have to send string to bytes buffer because of io.reader method
 	tmpl.Execute(&buf, admin_event)
@@ -126,7 +131,8 @@ func main() {
 	_, err = db.Exec(create_function)
 	ce(err)
 
-	// set up trigger
+	// set up trigger for admin events
+
 	tmpl, err = template.ParseFiles("./create_trigger.sql.tmpl")
 	tmpl.Execute(&buf, admin_event)
 	create_trigger = buf.String()
