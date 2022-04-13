@@ -5,11 +5,29 @@ package dbfx
 import (
 	"fmt"
 	"time"
+	"database/sql"
+	"text/template"
+	"bytes"
 
 	. "pgwebhook/utilities"
 
 	"github.com/lib/pq"
 )
+
+func Parse_and_exec(filename string, tvars *Template_vars, db *sql.DB) error {
+
+	tmpl, err := template.ParseFiles(filename)
+	CE(err)
+	// save to bytes
+	var buffalo bytes.Buffer
+	tmpl.Execute(&buffalo, tvars)
+	// and back to string for db.exec
+	_, err = db.Exec(buffalo.String())
+	CE(err)
+
+	return nil
+
+}
 
 func Create_Listener(connection string, tvars *Template_vars) (*pq.Listener, error) {
 	prob := func(ev pq.ListenerEventType, err error) {
