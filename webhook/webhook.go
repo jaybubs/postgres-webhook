@@ -3,9 +3,9 @@ package webhook
 // webhook related functionality
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
-	"crypto/tls"
 	"strings"
 )
 

@@ -16,8 +16,8 @@ func CE(err error) {
 
 // Template struct
 type Template_vars struct {
-	Pgchannel string
-	Table_name string
+	Pgchannel   string
+	Table_name  string
 	Json_column string
 }
 

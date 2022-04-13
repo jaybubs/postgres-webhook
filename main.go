@@ -11,11 +11,6 @@ import (
 	. "pgwebhook/utilities"
 )
 
-
-
-
-
-
 func main() {
 
 	// make config struct accessible
@@ -24,7 +19,6 @@ func main() {
 
 	// connection string is created based off of the config.json, the password should normally not be stored in plaintext, but the security implementation is out of scope of this work
 	connection := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", config.Pguser, config.Pgpass, config.Pgdb)
-	// db is a pointer already!
 	db, err := sql.Open("postgres", connection)
 	CE(err)
 

@@ -3,11 +3,11 @@ package dbfx
 // functions for db connection and execution
 
 import (
-	"fmt"
-	"time"
-	"database/sql"
-	"text/template"
 	"bytes"
+	"database/sql"
+	"fmt"
+	"text/template"
+	"time"
 
 	. "pgwebhook/utilities"
 
@@ -19,16 +19,17 @@ func Parse_and_exec(filename string, tvars *Template_vars, db *sql.DB) error {
 	tmpl, err := template.ParseFiles(filename)
 	CE(err)
 	// save to bytes
-	var buffalo bytes.Buffer
-	tmpl.Execute(&buffalo, tvars)
+	var buffer bytes.Buffer
+	tmpl.Execute(&buffer, tvars)
 	// and back to string for db.exec
-	_, err = db.Exec(buffalo.String())
+	_, err = db.Exec(buffer.String())
 	CE(err)
 
 	return nil
 
 }
 
+// return a listener that can be passed to Listen() after a channel has been created for it
 func Create_Listener(connection string, tvars *Template_vars) (*pq.Listener, error) {
 	prob := func(ev pq.ListenerEventType, err error) {
 		CE(err)

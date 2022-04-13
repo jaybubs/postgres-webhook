@@ -1,10 +1,13 @@
 package config
 
+// simply loading a config.json located in the root that should contain connection info
+
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"io/ioutil"
+
+	. "pgwebhook/utilities"
 )
 
 var (
@@ -16,19 +19,19 @@ var (
 )
 
 type config_struct struct {
-	Webhook_url string	`json: "webhook_url"`
-	Pguser      string	`json: "pguser"`
-	Pgpass      string	`json: "pgpass"`
-	Pgdb        string	`json: "pgdb"`
+	Webhook_url string	`json:"webhook_url"`
+	Pguser      string	`json:"pguser"`
+	Pgpass      string	`json:"pgpass"`
+	Pgdb        string	`json:"pgdb"`
 }
 
 func Read_config() error {
 	fmt.Println("Reading config file...")
 	file, err := ioutil.ReadFile("./config.json")
-	ce(err)
+	CE(err)
 	
 	err = json.Unmarshal(file, &config)
-	ce(err)
+	CE(err)
 
 	Webhook_url = config.Webhook_url
 	Pguser = config.Pguser
@@ -36,11 +39,4 @@ func Read_config() error {
 	Pgdb = config.Pgdb
 
 	return nil
-}
-
-// error wrapper function
-func ce(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
 }
